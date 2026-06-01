@@ -463,22 +463,21 @@
     font-weight:900;
   }
 
+  .result-button-row{
+    margin-top:20px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
   #share-btn{
     background:#1d9bf0;
     color:#fff;
-    margin-top:4px;
-    margin-bottom:14px;
   }
 
   #retry-btn{
     background:#fff;
     color:#111;
-    margin-bottom:14px;
-  }
-
-  #close-btn{
-    background:#555;
-    color:#fff;
   }
 
   @media (max-width: 640px){
@@ -671,10 +670,9 @@
     <div id="final-time" class="summary-item">時間: --分--秒</div>
     <div id="final-count" class="summary-item">回数: --回</div>
 
-    <div style="margin-top:20px;">
+    <div class="result-button-row">
       <button id="share-btn" class="big-btn">練習結果をシェア</button>
       <button id="retry-btn" class="big-btn">もう一度練習する</button>
-      <button id="close-btn" class="big-btn">画面を閉じる</button>
     </div>
   </div>
 </div>
@@ -747,15 +745,19 @@ const ballPositions = [
   {x:50, y:7},
   {x:38, y:7},
   {x:62, y:7},
+
   {x:50, y:93},
   {x:38, y:93},
   {x:62, y:93},
+
   {x:9, y:50},
   {x:9, y:36},
   {x:9, y:64},
+
   {x:91, y:50},
   {x:91, y:36},
   {x:91, y:64},
+
   {x:15, y:13},
   {x:85, y:13},
   {x:15, y:87},
@@ -788,7 +790,6 @@ const finalTime = document.getElementById('final-time');
 const finalCount = document.getElementById('final-count');
 const shareBtn = document.getElementById('share-btn');
 const retryBtn = document.getElementById('retry-btn');
-const closeBtn = document.getElementById('close-btn');
 
 const controlBar = document.getElementById('control-bar');
 const pauseBtn = document.getElementById('pause-btn');
@@ -1411,13 +1412,6 @@ shareBtn.addEventListener('click', async () => {
 
 retryBtn.addEventListener('click', () => {
   resetWholePractice();
-});
-
-closeBtn.addEventListener('click', () => {
-  window.close();
-  setTimeout(() => {
-    alert('このブラウザでは自動で閉じられない場合があります。手動でタブを閉じてください。');
-  }, 300);
 });
 
 document.addEventListener('visibilitychange', () => {
