@@ -89,19 +89,17 @@
 
   #pitcher-img{
     display:none;
-    max-width:min(92vw, 620px);
-    max-height:62vh;
-    object-fit:contain;
-    border-radius:12px;
-    z-index:12;
   }
 
   #svg-circle{
     width:min(74vw, 54vh);
     height:min(74vw, 54vh);
-    transform:rotate(-90deg);
     position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%, -50%) rotate(-90deg);
     z-index:10;
+    display:none;
   }
 
   #circle-bg{
@@ -121,29 +119,39 @@
 
   #center-text{
     position:absolute;
-    width:100%;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
+    inset:0;
     z-index:20;
     pointer-events:none;
   }
 
   #status-text{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%, -50%);
     margin:0;
+    width:100%;
     font-size:clamp(28px, 7vw, 64px);
     font-weight:900;
+    line-height:1.25;
     text-shadow:0 0 12px rgba(0,0,0,.7);
     letter-spacing:.04em;
   }
 
+  #status-text.set-pose{
+    font-size:clamp(34px, 8vw, 72px);
+    line-height:1.32;
+  }
+
   #pitch-area{
-    position:relative;
+    position:absolute;
+    left:50%;
+    top:50%;
     width:var(--pitch-area-width);
     height:var(--pitch-area-height);
+    transform:translate(-50%, -50%);
     display:none;
-    margin-bottom:14px;
+    z-index:20;
   }
 
   #zone-wrap{
@@ -187,28 +195,47 @@
   }
 
   #result-text{
+    position:absolute;
+    left:50%;
+    top:calc(50% + 30vh);
+    transform:translateX(-50%);
     display:none;
     font-weight:900;
     line-height:1;
     text-shadow:0 0 12px rgba(0,0,0,.35);
+    z-index:30;
   }
 
   .speed-row{
     display:flex;
     align-items:flex-end;
     justify-content:center;
-    gap:8px;
+    gap:5px;
   }
 
   .speed-val{
-    font-size:clamp(64px, 16vw, 160px);
+    font-size:clamp(36px, 8.96vw, 90px);
     font-weight:900;
     line-height:0.95;
   }
 
   .unit{
-    font-size:clamp(26px, 4.8vw, 44px);
-    margin-bottom:12px;
+    font-size:clamp(14px, 2.72vw, 25px);
+    margin-bottom:6px;
+  }
+
+  #catch-flash{
+    position:fixed;
+    inset:0;
+    background:#fff;
+    z-index:55;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity 40ms linear;
+  }
+
+  #catch-flash.active{
+    opacity:1;
   }
 
   #control-bar{
@@ -591,6 +618,47 @@
       margin-top:6px;
     }
   }
+
+  /* 横画面専用：ストライクゾーンは中央固定、球速だけ右側に表示 */
+  @media (orientation: landscape) and (max-height: 640px){
+    :root{
+      --zone-width:min(24vw, 34vh);
+      --zone-height:calc(var(--zone-width) * 1.55);
+      --pitch-area-width:calc(var(--zone-width) * 1.90);
+      --pitch-area-height:calc(var(--zone-height) * 1.55);
+      --ball-size:calc(var(--zone-width) * 0.20);
+    }
+
+    #display-container{
+      padding-top:50px;
+      padding-bottom:88px;
+    }
+
+    #result-text{
+      left:calc(50% + 25vw);
+      top:50%;
+      transform:translateY(-50%);
+      min-width:22vw;
+    }
+
+    .speed-row{
+      justify-content:flex-start;
+      align-items:flex-end;
+    }
+
+    .speed-val{
+      font-size:clamp(34px, 6.16vw, 73px);
+    }
+
+    .unit{
+      font-size:clamp(14px, 1.7vw, 22px);
+      margin-bottom:5px;
+    }
+
+    #control-bar{
+      bottom:18px;
+    }
+  }
 </style>
 </head>
 <body>
@@ -604,12 +672,12 @@
   <div class="panel">
     <h1 id="setup-title" class="panel-title">Enjoy Your Swing!</h1>
     <p id="setup-subtitle" class="panel-subtitle">
-      モードを選んでスタートしてください。
+      配球パターンを選んでスタートしてください。
     </p>
 
     <div class="mode-buttons">
       <button id="random-start-btn" class="big-btn mode-btn primary-btn">
-        ランダム<br>ストライクゾーンのみ
+        ランダム<br>ボールなし
       </button>
       <button id="random-with-ball-btn" class="big-btn mode-btn third-btn">
         ランダム<br>ボールあり
@@ -712,6 +780,8 @@
   </div>
 </div>
 
+<div id="catch-flash"></div>
+
 <div id="control-bar">
   <button id="pause-btn" class="ctrl-btn">一時停止</button>
   <button id="end-btn" class="ctrl-btn">練習終了</button>
@@ -719,14 +789,19 @@
 
 <script>
 const speeds = [60, 70, 80, 90];
-const setImage = 'right_01.png';
 const ballImage = 'ball.png';
 const catchSoundFile = 'catch01.wav';
 const circleLength = 628;
-const motionTime = 1200;
 const totalCycle = 8500;
 const realDistanceMeters = 14.5;
 const countdownSeconds = 8;
+
+const motionTimeBySpeed = {
+  60: 1600,
+  70: 1300,
+  80: 1000,
+  90: 700
+};
 
 const subPositions = [
   {x:0.18, y:0.18},
@@ -802,6 +877,7 @@ const statusText = document.getElementById('status-text');
 const pitchArea = document.getElementById('pitch-area');
 const pitchBall = document.getElementById('pitch-ball');
 const resultText = document.getElementById('result-text');
+const catchFlash = document.getElementById('catch-flash');
 
 let wakeLock = null;
 let audioCtx = null;
@@ -831,7 +907,7 @@ const settings = {
 };
 
 function preloadAssets(){
-  [setImage, ballImage].forEach(src => {
+  [ballImage].forEach(src => {
     const img = new Image();
     img.src = src;
   });
@@ -869,6 +945,14 @@ function playCatchSound(){
   source.connect(gain);
   gain.connect(audioCtx.destination);
   source.start(audioCtx.currentTime);
+}
+
+function showCatchFlash(){
+  catchFlash.classList.add('active');
+
+  setTimeout(() => {
+    catchFlash.classList.remove('active');
+  }, 120);
 }
 
 async function requestWakeLock(){
@@ -923,12 +1007,13 @@ function updateTimer(){
 
 function resetVisuals(){
   statusText.style.display = 'block';
+  statusText.classList.remove('set-pose');
   statusText.textContent = '';
+
   resultText.style.display = 'none';
   resultText.innerHTML = '';
 
   pitcherImg.style.display = 'none';
-  pitcherImg.src = '';
 
   svgCircle.style.display = 'none';
   progressCircle.style.transition = 'none';
@@ -938,18 +1023,21 @@ function resetVisuals(){
   pitchBall.style.display = 'none';
   pitchBall.style.left = '50%';
   pitchBall.style.top = '50%';
+
+  catchFlash.classList.remove('active');
 }
 
 function showSetPose(){
   resetVisuals();
+
+  statusText.classList.add('set-pose');
   statusText.style.display = 'block';
-  statusText.textContent = 'セット';
-  pitcherImg.src = setImage;
-  pitcherImg.style.display = 'block';
+  statusText.innerHTML = 'ピッチャー<br>セット';
 }
 
-function showPitchCircle(){
+function showPitchCircle(currentMotionTime){
   resetVisuals();
+
   statusText.style.display = 'block';
   statusText.textContent = '投球';
   svgCircle.style.display = 'block';
@@ -957,17 +1045,29 @@ function showPitchCircle(){
   progressCircle.style.transition = 'none';
   progressCircle.style.strokeDashoffset = circleLength;
 
+  progressCircle.getBoundingClientRect();
+
   requestAnimationFrame(() => {
-    progressCircle.style.transition = `stroke-dashoffset ${motionTime}ms linear`;
-    progressCircle.style.strokeDashoffset = 0;
+    requestAnimationFrame(() => {
+      progressCircle.style.transition = `stroke-dashoffset ${currentMotionTime}ms linear`;
+      progressCircle.style.strokeDashoffset = 0;
+    });
   });
 }
 
-function showPitchResult(pitch, speed){
+function showPitchResult(pitch){
   resetVisuals();
 
+  statusText.style.display = 'none';
+
   pitchArea.style.display = 'block';
-  resultText.style.display = 'block';
+
+  pitchBall.style.left = `${pitch.x}%`;
+  pitchBall.style.top = `${pitch.y}%`;
+  pitchBall.style.display = 'block';
+}
+
+function showSpeedResult(speed){
   resultText.innerHTML = `
     <div class="speed-row">
       <span class="speed-val">${speed}</span>
@@ -975,9 +1075,7 @@ function showPitchResult(pitch, speed){
     </div>
   `;
 
-  pitchBall.style.left = `${pitch.x}%`;
-  pitchBall.style.top = `${pitch.y}%`;
-  pitchBall.style.display = 'block';
+  resultText.style.display = 'block';
 }
 
 function setSeqTimeout(fn, delay){
@@ -1049,13 +1147,13 @@ function openSetupScreen(fromPause = false){
   if(fromPause){
     setupTitle.textContent = '一時停止中';
     setupSubtitle.innerHTML = 'コースや球速を変更して再開できます。時間と回数は維持されます。';
-    randomStartBtn.innerHTML = 'ランダム<br>ストライクゾーンのみで再開';
+    randomStartBtn.innerHTML = 'ランダム<br>ボールなしで再開';
     randomWithBallBtn.innerHTML = 'ランダム<br>ボールありで再開';
     customStartBtn.textContent = 'この設定で再開';
   }else{
     setupTitle.textContent = 'Enjoy Your Swing!';
-    setupSubtitle.innerHTML = 'モードを選んでスタートしてください。';
-    randomStartBtn.innerHTML = 'ランダム<br>ストライクゾーンのみ';
+    setupSubtitle.innerHTML = '配球パターンを選んでスタートしてください。';
+    randomStartBtn.innerHTML = 'ランダム<br>ボールなし';
     randomWithBallBtn.innerHTML = 'ランダム<br>ボールあり';
     customStartBtn.textContent = 'この設定でスタート';
   }
@@ -1072,6 +1170,10 @@ function getCurrentSpeed(){
   }
 
   return speeds[Math.floor(Math.random() * speeds.length)];
+}
+
+function getMotionTimeForSpeed(speed){
+  return motionTimeBySpeed[speed] || 1300;
 }
 
 function getRandomPointForStrikeCell(){
@@ -1195,6 +1297,7 @@ function runSequence(){
 
   const speed = getCurrentSpeed();
   const pitch = getCurrentPitch();
+  const currentMotionTime = getMotionTimeForSpeed(speed);
 
   const waitBeforePitch = 1200 + Math.random() * 1500;
   const reachTime = (realDistanceMeters / (speed / 3.6)) * 1000;
@@ -1202,17 +1305,19 @@ function runSequence(){
   setSeqTimeout(() => {
     if(!isRunning || isPaused) return;
 
-    showPitchCircle();
+    showPitchCircle(currentMotionTime);
 
     setSeqTimeout(() => {
       if(!isRunning || isPaused) return;
 
-      showPitchResult(pitch, speed);
+      showPitchResult(pitch);
 
       setSeqTimeout(() => {
         if(!isRunning || isPaused) return;
 
         playCatchSound();
+        showCatchFlash();
+        showSpeedResult(speed);
 
         if(pitch.type === 'strike'){
           pitchCount++;
@@ -1221,7 +1326,7 @@ function runSequence(){
 
       }, reachTime);
 
-    }, motionTime);
+    }, currentMotionTime);
 
   }, waitBeforePitch);
 }
