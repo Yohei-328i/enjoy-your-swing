@@ -380,6 +380,13 @@
     margin-bottom:8px;
   }
 
+  .setting-note{
+    font-size:13px;
+    color:#aaa;
+    margin-top:8px;
+    line-height:1.4;
+  }
+
   .compact-row{
     display:flex;
     gap:8px;
@@ -719,6 +726,11 @@
           <button class="speed-btn" data-speed="70">70</button>
           <button class="speed-btn" data-speed="80">80</button>
           <button class="speed-btn" data-speed="90">90</button>
+          <button class="speed-btn" data-speed="100">100</button>
+          <button class="speed-btn" data-speed="115">115</button>
+        </div>
+        <div class="setting-note">
+          複数選択すると、その中からランダム。100・115km/hは選択時のみ使用。
         </div>
       </div>
 
@@ -788,7 +800,9 @@
 </div>
 
 <script>
-const speeds = [60, 70, 80, 90];
+const defaultSpeeds = [60, 70, 80, 90];
+const selectableSpeeds = [60, 70, 80, 90, 100, 115];
+
 const ballImage = 'ball.png';
 const catchSoundFile = 'catch01.wav';
 const circleLength = 628;
@@ -800,7 +814,9 @@ const motionTimeBySpeed = {
   60: 1600,
   70: 1300,
   80: 1000,
-  90: 700
+  90: 700,
+  100: 600,
+  115: 500
 };
 
 const subPositions = [
@@ -903,7 +919,7 @@ const settings = {
   courseMode: 'random',
   courseIndex: 4,
   speedMode: 'random',
-  speedValue: 70
+  selectedSpeeds: []
 };
 
 function preloadAssets(){
@@ -1125,7 +1141,7 @@ function updateSpeedUI(){
     const value = Number(btn.dataset.speed);
     btn.classList.toggle(
       'active',
-      settings.speedMode === 'fixed' && value === settings.speedValue
+      settings.speedMode === 'selected' && settings.selectedSpeeds.includes(value)
     );
   });
 }
@@ -1164,12 +1180,16 @@ function closeSetupScreen(){
   controlBar.style.display = 'flex';
 }
 
+function pickRandomFromArray(array){
+  return array[Math.floor(Math.random() * array.length)];
+}
+
 function getCurrentSpeed(){
-  if(settings.mode === 'custom' && settings.speedMode === 'fixed'){
-    return settings.speedValue;
+  if(settings.mode === 'custom' && settings.speedMode === 'selected' && settings.selectedSpeeds.length > 0){
+    return pickRandomFromArray(settings.selectedSpeeds);
   }
 
-  return speeds[Math.floor(Math.random() * speeds.length)];
+  return pickRandomFromArray(defaultSpeeds);
 }
 
 function getMotionTimeForSpeed(speed){
@@ -1400,8 +1420,16 @@ function resetWholePractice(){
   practiceStartDate = null;
   finalShareText = '';
 
+  settings.mode = 'random';
+  settings.courseMode = 'random';
+  settings.courseIndex = 4;
+  settings.speedMode = 'random';
+  settings.selectedSpeeds = [];
+
   updateTimerDisplay();
   updateCountDisplay();
+  updateCourseUI();
+  updateSpeedUI();
 
   resultScreen.style.display = 'none';
   resetVisuals();
@@ -1413,6 +1441,7 @@ randomStartBtn.addEventListener('click', async () => {
   settings.mode = 'random';
   settings.courseMode = 'random';
   settings.speedMode = 'random';
+  settings.selectedSpeeds = [];
   updateCourseUI();
   updateSpeedUI();
 
@@ -1426,6 +1455,7 @@ randomWithBallBtn.addEventListener('click', async () => {
   settings.mode = 'randomWithBall';
   settings.courseMode = 'random';
   settings.speedMode = 'random';
+  settings.selectedSpeeds = [];
   updateCourseUI();
   updateSpeedUI();
 
@@ -1462,14 +1492,29 @@ courseButtons.forEach(btn => {
 speedRandomBtn.addEventListener('click', () => {
   settings.mode = 'custom';
   settings.speedMode = 'random';
+  settings.selectedSpeeds = [];
   updateSpeedUI();
 });
 
 speedButtons.forEach(btn => {
   btn.addEventListener('click', () => {
     settings.mode = 'custom';
-    settings.speedMode = 'fixed';
-    settings.speedValue = Number(btn.dataset.speed);
+    settings.speedMode = 'selected';
+
+    const value = Number(btn.dataset.speed);
+    const alreadySelected = settings.selectedSpeeds.includes(value);
+
+    if(alreadySelected){
+      settings.selectedSpeeds = settings.selectedSpeeds.filter(speed => speed !== value);
+    }else{
+      settings.selectedSpeeds.push(value);
+      settings.selectedSpeeds.sort((a, b) => a - b);
+    }
+
+    if(settings.selectedSpeeds.length === 0){
+      settings.speedMode = 'random';
+    }
+
     updateSpeedUI();
   });
 });
