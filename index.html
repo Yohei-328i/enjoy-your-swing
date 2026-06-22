@@ -716,6 +716,10 @@
           <button class="course-btn" data-course="7">下</button>
           <button class="course-btn" data-course="8">右下</button>
         </div>
+
+        <div class="setting-note">
+          複数選択すると、その中からランダム。
+        </div>
       </div>
 
       <div class="setting-block">
@@ -917,7 +921,7 @@ let sequenceTimeouts = [];
 const settings = {
   mode: 'random',
   courseMode: 'random',
-  courseIndex: 4,
+  selectedCourses: [],
   speedMode: 'random',
   selectedSpeeds: []
 };
@@ -1126,10 +1130,10 @@ function updateCourseUI(){
   courseRandomBtn.classList.toggle('active', settings.courseMode === 'random');
 
   courseButtons.forEach(btn => {
-    const idx = Number(btn.dataset.course);
+    const value = Number(btn.dataset.course);
     btn.classList.toggle(
       'active',
-      settings.courseMode === 'fixed' && idx === settings.courseIndex
+      settings.courseMode === 'selected' && settings.selectedCourses.includes(value)
     );
   });
 }
@@ -1226,6 +1230,11 @@ function getRandomStrikePitch(){
   return getStrikePitchFromCourse(courseIndex);
 }
 
+function getSelectedCoursePitch(){
+  const courseIndex = pickRandomFromArray(settings.selectedCourses);
+  return getStrikePitchFromCourse(courseIndex);
+}
+
 function getRandomBallPitch(){
   const pos = ballPositions[Math.floor(Math.random() * ballPositions.length)];
   return {
@@ -1237,8 +1246,8 @@ function getRandomBallPitch(){
 
 function getCurrentPitch(){
   if(settings.mode === 'custom'){
-    if(settings.courseMode === 'fixed'){
-      return getStrikePitchFromCourse(settings.courseIndex);
+    if(settings.courseMode === 'selected' && settings.selectedCourses.length > 0){
+      return getSelectedCoursePitch();
     }
 
     return getRandomStrikePitch();
@@ -1422,7 +1431,7 @@ function resetWholePractice(){
 
   settings.mode = 'random';
   settings.courseMode = 'random';
-  settings.courseIndex = 4;
+  settings.selectedCourses = [];
   settings.speedMode = 'random';
   settings.selectedSpeeds = [];
 
@@ -1440,6 +1449,7 @@ function resetWholePractice(){
 randomStartBtn.addEventListener('click', async () => {
   settings.mode = 'random';
   settings.courseMode = 'random';
+  settings.selectedCourses = [];
   settings.speedMode = 'random';
   settings.selectedSpeeds = [];
   updateCourseUI();
@@ -1454,6 +1464,7 @@ randomStartBtn.addEventListener('click', async () => {
 randomWithBallBtn.addEventListener('click', async () => {
   settings.mode = 'randomWithBall';
   settings.courseMode = 'random';
+  settings.selectedCourses = [];
   settings.speedMode = 'random';
   settings.selectedSpeeds = [];
   updateCourseUI();
@@ -1477,14 +1488,29 @@ customBackBtn.addEventListener('click', () => {
 courseRandomBtn.addEventListener('click', () => {
   settings.mode = 'custom';
   settings.courseMode = 'random';
+  settings.selectedCourses = [];
   updateCourseUI();
 });
 
 courseButtons.forEach(btn => {
   btn.addEventListener('click', () => {
     settings.mode = 'custom';
-    settings.courseMode = 'fixed';
-    settings.courseIndex = Number(btn.dataset.course);
+    settings.courseMode = 'selected';
+
+    const value = Number(btn.dataset.course);
+    const alreadySelected = settings.selectedCourses.includes(value);
+
+    if(alreadySelected){
+      settings.selectedCourses = settings.selectedCourses.filter(course => course !== value);
+    }else{
+      settings.selectedCourses.push(value);
+      settings.selectedCourses.sort((a, b) => a - b);
+    }
+
+    if(settings.selectedCourses.length === 0){
+      settings.courseMode = 'random';
+    }
+
     updateCourseUI();
   });
 });
